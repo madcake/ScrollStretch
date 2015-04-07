@@ -1,6 +1,5 @@
 package com.dzencake.slidingpane;
 
-import android.content.Context;
 import android.graphics.PointF;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -35,7 +34,6 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 	 * height minus padding, if layout is horizontal, total space is the width minus padding.
 	 */
 	private static final float MAX_SCROLL_FACTOR = 0.33f;
-	private final RecyclerView mRecyclerView;
 
 	/**
 	 * Helper class that keeps temporary layout state.
@@ -45,18 +43,6 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 	private LayoutState mLayoutState;
 
 	OrientationHelper mOrientationHelper;
-
-	/**
-	 * We need to track this so that we can ignore current position when it changes.
-	 */
-	private boolean mLastStackFromEnd;
-
-	/**
-	 * Works the same way as {@link android.widget.AbsListView#setStackFromBottom(boolean)} and
-	 * it supports both orientations.
-	 * see {@link android.widget.AbsListView#setStackFromBottom(boolean)}
-	 */
-	private boolean mStackFromEnd = false;
 
 	/**
 	 * Works the same way as {@link android.widget.AbsListView#setSmoothScrollbarEnabled(boolean)}.
@@ -86,14 +72,8 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 	 * */
 	final AnchorInfo mAnchorInfo;
 
-	/**
-	 * Creates a vertical LinearLayoutManager
-	 *
-	 * @param context Current context, will be used to access resources.
-	 */
-	public ScrollStretchLayout(Context context, RecyclerView recyclerView) {
+	public ScrollStretchLayout() {
 		mAnchorInfo = new AnchorInfo();
-		mRecyclerView = recyclerView;
 	}
 
 	/**
@@ -161,19 +141,10 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 		SavedState state = new SavedState();
 		if (getChildCount() > 0) {
 			ensureLayoutState();
-			boolean didLayoutFromEnd = mLastStackFromEnd;
-			state.mAnchorLayoutFromEnd = didLayoutFromEnd;
-			if (didLayoutFromEnd) {
-				final View refChild = getChildClosestToEnd();
-				state.mAnchorOffset = mOrientationHelper.getEndAfterPadding() -
-						mOrientationHelper.getDecoratedEnd(refChild);
-				state.mAnchorPosition = getPosition(refChild);
-			} else {
-				final View refChild = getChildClosestToStart();
-				state.mAnchorPosition = getPosition(refChild);
-				state.mAnchorOffset = mOrientationHelper.getDecoratedStart(refChild) -
-						mOrientationHelper.getStartAfterPadding();
-			}
+			final View refChild = getChildClosestToStart();
+			state.mAnchorPosition = getPosition(refChild);
+			state.mAnchorOffset = mOrientationHelper.getDecoratedStart(refChild) -
+					mOrientationHelper.getStartAfterPadding();
 		} else {
 			state.invalidateAnchor();
 		}
@@ -184,6 +155,9 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 	public void onRestoreInstanceState(Parcelable state) {
 		if (state instanceof SavedState) {
 			mPendingSavedState = (SavedState) state;
+			if (mPendingSavedState.mAnchorOffset > getHeight()) {
+				mPendingSavedState.mAnchorOffset = getHeight();
+			}
 			requestLayout();
 		}
 	}
@@ -196,22 +170,6 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 	@Override
 	public boolean canScrollVertically() {
 		return true;
-	}
-
-	/**
-	 * Compatibility support for {@link android.widget.AbsListView#setStackFromBottom(boolean)}
-	 */
-	public void setStackFromEnd(boolean stackFromEnd) {
-		assertNotInLayoutOrScroll(null);
-		if (mStackFromEnd == stackFromEnd) {
-			return;
-		}
-		mStackFromEnd = stackFromEnd;
-		requestLayout();
-	}
-
-	public boolean getStackFromEnd() {
-		return mStackFromEnd;
 	}
 
 	/**
@@ -295,7 +253,6 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 		mLayoutState.mRecycle = false;
 
 		mAnchorInfo.reset();
-		mAnchorInfo.mLayoutFromEnd = mStackFromEnd;
 		// calculate anchor position and coordinate
 		updateAnchorInfoForLayout(state, mAnchorInfo);
 
@@ -338,37 +295,20 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 		onAnchorReady(state, mAnchorInfo);
 		detachAndScrapAttachedViews(recycler);
 		mLayoutState.mIsPreLayout = state.isPreLayout();
-		if (mAnchorInfo.mLayoutFromEnd) {
-			// fill towards start
-			updateLayoutStateToFillStart(mAnchorInfo);
-			mLayoutState.mExtra = extraForStart;
-			fill(recycler, mLayoutState, state, false);
-			startOffset = mLayoutState.mOffset;
-			if (mLayoutState.mAvailable > 0) {
-				extraForEnd += mLayoutState.mAvailable;
-			}
-			// fill towards end
-			updateLayoutStateToFillEnd(mAnchorInfo);
-			mLayoutState.mExtra = extraForEnd;
-			mLayoutState.mCurrentPosition += mLayoutState.mItemDirection;
-			fill(recycler, mLayoutState, state, false);
-			endOffset = mLayoutState.mOffset;
-		} else {
-			// fill towards end
-			updateLayoutStateToFillEnd(mAnchorInfo);
-			mLayoutState.mExtra = extraForEnd;
-			fill(recycler, mLayoutState, state, false);
-			endOffset = mLayoutState.mOffset;
-			if (mLayoutState.mAvailable > 0) {
-				extraForStart += mLayoutState.mAvailable;
-			}
-			// fill towards start
-			updateLayoutStateToFillStart(mAnchorInfo);
-			mLayoutState.mExtra = extraForStart;
-			mLayoutState.mCurrentPosition += mLayoutState.mItemDirection;
-			fill(recycler, mLayoutState, state, false);
-			startOffset = mLayoutState.mOffset;
+		// fill towards end
+		updateLayoutStateToFillEnd(mAnchorInfo);
+		mLayoutState.mExtra = extraForEnd;
+		fill(recycler, mLayoutState, state, false);
+		endOffset = mLayoutState.mOffset;
+		if (mLayoutState.mAvailable > 0) {
+			extraForStart += mLayoutState.mAvailable;
 		}
+		// fill towards start
+		updateLayoutStateToFillStart(mAnchorInfo);
+		mLayoutState.mExtra = extraForStart;
+		mLayoutState.mCurrentPosition += mLayoutState.mItemDirection;
+		fill(recycler, mLayoutState, state, false);
+		startOffset = mLayoutState.mOffset;
 
 		// changes may cause gaps on the UI, try to fix them.
 		// TODO we can probably avoid this if neither stackFromEnd/reverseLayout/RTL values have
@@ -377,21 +317,12 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 			// because layout from end may be changed by scroll to position
 			// we re-calculate it.
 			// find which side we should check for gaps.
-			if (mStackFromEnd) {
-				int fixOffset = fixLayoutEndGap(endOffset, recycler, state, true);
-				startOffset += fixOffset;
-				endOffset += fixOffset;
-				fixOffset = fixLayoutStartGap(startOffset, recycler, state, false);
-				startOffset += fixOffset;
-				endOffset += fixOffset;
-			} else {
-				int fixOffset = fixLayoutStartGap(startOffset, recycler, state, true);
-				startOffset += fixOffset;
-				endOffset += fixOffset;
-				fixOffset = fixLayoutEndGap(endOffset, recycler, state, false);
-				startOffset += fixOffset;
-				endOffset += fixOffset;
-			}
+			int fixOffset = fixLayoutStartGap(startOffset, recycler, state, true);
+			startOffset += fixOffset;
+			endOffset += fixOffset;
+			fixOffset = fixLayoutEndGap(endOffset, recycler, state, false);
+			startOffset += fixOffset;
+			endOffset += fixOffset;
 		}
 		layoutForPredictiveAnimations(recycler, state, startOffset, endOffset);
 		if (!state.isPreLayout()) {
@@ -399,7 +330,6 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 			mPendingScrollPositionOffset = INVALID_OFFSET;
 			mOrientationHelper.onLayoutComplete();
 		}
-		mLastStackFromEnd = mStackFromEnd;
 		mPendingSavedState = null; // we don't need this anymore
 	}
 
@@ -474,7 +404,7 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 			return;
 		}
 		anchorInfo.assignCoordinateFromPadding();
-		anchorInfo.mPosition = mStackFromEnd ? state.getItemCount() - 1 : 0;
+		anchorInfo.mPosition = 0;
 	}
 
 	/**
@@ -492,12 +422,7 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 			return true;
 		}
 
-		if (mLastStackFromEnd != mStackFromEnd) {
-			return false;
-		}
-
-		View referenceChild = anchorInfo.mLayoutFromEnd ? findReferenceChildClosestToEnd(state)
-				: findReferenceChildClosestToStart(state);
+		View referenceChild = findReferenceChildClosestToStart(state);
 		if (referenceChild != null) {
 			anchorInfo.assignFromView(referenceChild);
 			// If all visible views are removed in 1 pass, reference child might be out of bounds.
@@ -510,9 +435,7 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 								|| mOrientationHelper.getDecoratedEnd(referenceChild)
 								< mOrientationHelper.getStartAfterPadding();
 				if (notVisible) {
-					anchorInfo.mCoordinate = anchorInfo.mLayoutFromEnd
-							? mOrientationHelper.getEndAfterPadding()
-							: mOrientationHelper.getStartAfterPadding();
+					anchorInfo.mCoordinate = mOrientationHelper.getStartAfterPadding();
 				}
 			}
 			return true;
@@ -541,14 +464,8 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 		if (mPendingSavedState != null && mPendingSavedState.hasValidAnchor()) {
 			// Anchor offset depends on how that child was laid out. Here, we update it
 			// according to our current view bounds
-			anchorInfo.mLayoutFromEnd = mPendingSavedState.mAnchorLayoutFromEnd;
-			if (anchorInfo.mLayoutFromEnd) {
-				anchorInfo.mCoordinate = mOrientationHelper.getEndAfterPadding() -
-						mPendingSavedState.mAnchorOffset;
-			} else {
-				anchorInfo.mCoordinate = mOrientationHelper.getStartAfterPadding() +
-						mPendingSavedState.mAnchorOffset;
-			}
+			anchorInfo.mCoordinate = mOrientationHelper.getStartAfterPadding() +
+					mPendingSavedState.mAnchorOffset;
 			return true;
 		}
 
@@ -565,32 +482,25 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 						- mOrientationHelper.getStartAfterPadding();
 				if (startGap < 0) {
 					anchorInfo.mCoordinate = mOrientationHelper.getStartAfterPadding();
-					anchorInfo.mLayoutFromEnd = false;
 					return true;
 				}
 				final int endGap = mOrientationHelper.getEndAfterPadding() -
 						mOrientationHelper.getDecoratedEnd(child);
 				if (endGap < 0) {
 					anchorInfo.mCoordinate = mOrientationHelper.getEndAfterPadding();
-					anchorInfo.mLayoutFromEnd = true;
 					return true;
 				}
-				anchorInfo.mCoordinate = anchorInfo.mLayoutFromEnd
-						? (mOrientationHelper.getDecoratedEnd(child) + mOrientationHelper
-						.getTotalSpaceChange())
-						: mOrientationHelper.getDecoratedStart(child);
+				anchorInfo.mCoordinate = mOrientationHelper.getDecoratedStart(child);
 			} else { // item is not visible.
 				if (getChildCount() > 0) {
-					// get position of any child, does not matter
+					//TODO: get position of any child, does not matter
 					int pos = getPosition(getChildAt(0));
-					anchorInfo.mLayoutFromEnd = mPendingScrollPosition < pos;
 				}
 				anchorInfo.assignCoordinateFromPadding();
 			}
 			return true;
 		}
 		// override layout from end values for consistency
-		anchorInfo.mLayoutFromEnd = false;
 		anchorInfo.mCoordinate = mOrientationHelper.getStartAfterPadding() +
 				mPendingScrollPositionOffset;
 		return true;
@@ -602,7 +512,7 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 	private int fixLayoutEndGap(int endOffset, RecyclerView.Recycler recycler,
 								RecyclerView.State state, boolean canOffsetChildren) {
 		int gap = mOrientationHelper.getEndAfterPadding() - endOffset;
-		int fixOffset = 0;
+		int fixOffset;
 		if (gap > 0) {
 			fixOffset = -scrollBy(-gap, recycler, state);
 		} else {
@@ -627,7 +537,7 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 	private int fixLayoutStartGap(int startOffset, RecyclerView.Recycler recycler,
 								  RecyclerView.State state, boolean canOffsetChildren) {
 		int gap = startOffset - mOrientationHelper.getStartAfterPadding();
-		int fixOffset = 0;
+		int fixOffset;
 		if (gap > 0) {
 			// check if we should fix this gap.
 			fixOffset = -scrollBy(gap, recycler, state);
@@ -876,10 +786,12 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 		final int scrolled = absDy > consumed ? layoutDirection * consumed : dy;
 		mOrientationHelper.offsetChildren(-scrolled);
 
-		if (getPosition(getChildClosestToStart()) == 0 && getChildClosestToStart().getBottom() > getHeight()) {
-			mOrientationHelper.offsetChildren(getHeight() - getChildClosestToStart().getBottom());
-		} else if (getPosition(getChildClosestToEnd()) == getItemCount() - 1 && getChildClosestToEnd().getTop() < 0) {
-			mOrientationHelper.offsetChildren(0 - getChildClosestToEnd().getTop());
+		if (getPosition(getChildClosestToStart()) == 0
+				&& mOrientationHelper.getDecoratedEnd(getChildClosestToStart()) > getHeight()) {
+			mOrientationHelper.offsetChildren(getHeight() - mOrientationHelper.getDecoratedEnd(getChildClosestToStart()));
+		} else if (getPosition(getChildClosestToEnd()) == getItemCount() - 1
+				&& mOrientationHelper.getDecoratedStart(getChildClosestToEnd()) < 0) {
+			mOrientationHelper.offsetChildren(0 - mOrientationHelper.getDecoratedStart(getChildClosestToEnd()));
 		}
 		return scrolled;
 	}
@@ -1020,7 +932,8 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 			View endView = getChildClosestToEnd();
 			int lastPos = getItemCount() - 1;
 			if ((layoutState.mCurrentPosition < 0 || layoutState.mCurrentPosition >= lastPos)
-					&& (endView.getTop() <= 0 || startView.getBottom() >= getHeight())) {
+					&& (mOrientationHelper.getDecoratedEnd(endView) <= 0
+						|| mOrientationHelper.getDecoratedEnd(startView) >= getHeight())) {
 				break;
 			}
 			layoutState.mOffset += layoutChunkResult.mConsumed * layoutState.mLayoutDirection;
@@ -1366,7 +1279,7 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 
 	@Override
 	public boolean supportsPredictiveItemAnimations() {
-		return mPendingSavedState == null && mLastStackFromEnd == mStackFromEnd;
+		return mPendingSavedState == null;
 	}
 
 	/**
@@ -1516,8 +1429,6 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 
 		int mAnchorOffset;
 
-		boolean mAnchorLayoutFromEnd;
-
 		public SavedState() {
 
 		}
@@ -1525,13 +1436,11 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 		SavedState(Parcel in) {
 			mAnchorPosition = in.readInt();
 			mAnchorOffset = in.readInt();
-			mAnchorLayoutFromEnd = in.readInt() == 1;
 		}
 
 		public SavedState(SavedState other) {
 			mAnchorPosition = other.mAnchorPosition;
 			mAnchorOffset = other.mAnchorOffset;
-			mAnchorLayoutFromEnd = other.mAnchorLayoutFromEnd;
 		}
 
 		boolean hasValidAnchor() {
@@ -1551,7 +1460,6 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 		public void writeToParcel(Parcel dest, int flags) {
 			dest.writeInt(mAnchorPosition);
 			dest.writeInt(mAnchorOffset);
-			dest.writeInt(mAnchorLayoutFromEnd ? 1 : 0);
 		}
 
 		public static final Parcelable.Creator<SavedState> CREATOR
@@ -1574,11 +1482,9 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 	class AnchorInfo {
 		int mPosition;
 		int mCoordinate;
-		boolean mLayoutFromEnd;
 		void reset() {
 			mPosition = NO_POSITION;
 			mCoordinate = INVALID_OFFSET;
-			mLayoutFromEnd = false;
 		}
 
 		/**
@@ -1586,9 +1492,7 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 		 * layoutFromEnd value
 		 */
 		void assignCoordinateFromPadding() {
-			mCoordinate = mLayoutFromEnd
-					? mOrientationHelper.getEndAfterPadding()
-					: mOrientationHelper.getStartAfterPadding();
+			mCoordinate = mOrientationHelper.getStartAfterPadding();
 		}
 
 		@Override
@@ -1596,7 +1500,6 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 			return "AnchorInfo{" +
 					"mPosition=" + mPosition +
 					", mCoordinate=" + mCoordinate +
-					", mLayoutFromEnd=" + mLayoutFromEnd +
 					'}';
 		}
 
@@ -1615,13 +1518,7 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 		}
 
 		public void assignFromView(View child) {
-			if (mLayoutFromEnd) {
-				mCoordinate = mOrientationHelper.getDecoratedEnd(child) +
-						mOrientationHelper.getTotalSpaceChange();
-			} else {
-				mCoordinate = mOrientationHelper.getDecoratedStart(child);
-			}
-
+			mCoordinate = mOrientationHelper.getDecoratedStart(child);
 			mPosition = getPosition(child);
 		}
 	}
@@ -1640,4 +1537,3 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 		}
 	}
 }
-
