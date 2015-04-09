@@ -1,11 +1,13 @@
 package com.dzencake.slidingpane;
 
-import android.media.Image;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.v7.app.ActionBarActivity;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
@@ -14,9 +16,13 @@ import android.widget.Toast;
 
 import com.squareup.picasso.Picasso;
 
+import java.util.ArrayList;
+import java.util.List;
+
 
 public class MainActivity extends ActionBarActivity {
 
+	private final List<Integer> mItems = new ArrayList<>();
 	private RecyclerView mRecyclerView;
 
 	@Override
@@ -26,7 +32,7 @@ public class MainActivity extends ActionBarActivity {
 
 		mRecyclerView = (RecyclerView) findViewById(R.id.list);
 		mRecyclerView.setLayoutManager(new ScrollStretchLayout());
-		mRecyclerView.setAdapter(new SimpleAdapter(30));
+		mRecyclerView.setAdapter(new SimpleAdapter());
 		mRecyclerView.setOnScrollListener(new RecyclerView.OnScrollListener() {
 			@Override
 			public void onScrollStateChanged(RecyclerView recyclerView, int newState) {
@@ -52,13 +58,29 @@ public class MainActivity extends ActionBarActivity {
 //		mRecyclerView.smoothScrollBy(0, -600);
 	}
 
-	class SimpleAdapter extends RecyclerView.Adapter<BindHolder> {
+	@Override
+	public boolean onCreateOptionsMenu(Menu menu) {
+		getMenuInflater().inflate(R.menu.menu_main, menu);
+		return super.onCreateOptionsMenu(menu);
+	}
 
-		private final int mCount;
-
-		SimpleAdapter(int count) {
-			mCount = count;
+	@Override
+	public boolean onOptionsItemSelected(MenuItem item) {
+		switch (item.getItemId()) {
+			case R.id.action_add: {
+				mItems.add(mItems.size());
+				break;
+			}
+			case R.id.action_remove: {
+				mItems.remove(mItems.size() - 1);
+				break;
+			}
 		}
+		mRecyclerView.getAdapter().notifyDataSetChanged();
+		return super.onOptionsItemSelected(item);
+	}
+
+	class SimpleAdapter extends RecyclerView.Adapter<BindHolder> {
 
 		@Override
 		public int getItemViewType(int position) {
@@ -83,7 +105,7 @@ public class MainActivity extends ActionBarActivity {
 
 		@Override
 		public int getItemCount() {
-			return mCount;
+			return mItems.size();
 		}
 	}
 

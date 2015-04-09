@@ -786,6 +786,7 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 		final int scrolled = absDy > consumed ? layoutDirection * consumed : dy;
 		mOrientationHelper.offsetChildren(-scrolled);
 
+		// Смещаем вью если перекрутили цикл в fill
 		if (getPosition(getChildClosestToStart()) == 0
 				&& mOrientationHelper.getDecoratedEnd(getChildClosestToStart()) > getHeight()) {
 			mOrientationHelper.offsetChildren(getHeight() - mOrientationHelper.getDecoratedEnd(getChildClosestToStart()));
@@ -922,15 +923,20 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 		int remainingSpace = layoutState.mAvailable + layoutState.mExtra;
 		LayoutChunkResult layoutChunkResult = new LayoutChunkResult();
 		int consumed = 0;
-		while (remainingSpace > 0) {
+		// Основная магия происходит в этом цикле. Этот метод вызывается из {@link #scrollBy()}.
+		while (remainingSpace > 0 && getItemCount() > 0) {
 			layoutChunkResult.resetInternal();
+			// Тут готовим view тут же добавляем её в контейнер. Внутри есть немного магии.
 			layoutChunk(recycler, state, layoutState, layoutChunkResult);
 			if (layoutChunkResult.mFinished) {
+				// Раньше было break теперь хак.
 				layoutChunkResult.mConsumed = consumed;
 			}
+			// Подготавливаем переменные
 			View startView = getChildClosestToStart();
 			View endView = getChildClosestToEnd();
 			int lastPos = getItemCount() - 1;
+			// Вычисляем хватит или надо продолжить добавлять и смещать view
 			if ((layoutState.mCurrentPosition < 0 || layoutState.mCurrentPosition >= lastPos)
 					&& (mOrientationHelper.getDecoratedEnd(endView) <= 0
 						|| mOrientationHelper.getDecoratedEnd(startView) >= getHeight())) {
