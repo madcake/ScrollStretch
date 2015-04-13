@@ -32,12 +32,14 @@ public class MainActivity extends ActionBarActivity {
 
 		if (savedInstanceState == null) {
 			mItems = new ArrayList<>();
+			mItems.add(0);
+			mItems.add(1);
 		} else {
 			mItems = savedInstanceState.getIntegerArrayList(STATE_ITEMS);
 		}
 
 		mRecyclerView = (RecyclerView) findViewById(R.id.list);
-		mRecyclerView.setLayoutManager(new ScrollStretchLayout());
+		mRecyclerView.setLayoutManager(new VerticalLayout());
 		mRecyclerView.setAdapter(new SimpleAdapter());
 		mRecyclerView.setOnScrollListener(new RecyclerView.OnScrollListener() {
 			@Override
