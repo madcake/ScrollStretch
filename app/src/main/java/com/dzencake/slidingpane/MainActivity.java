@@ -6,7 +6,6 @@ import android.support.v7.app.ActionBarActivity;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.Menu;
-import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
@@ -17,18 +16,25 @@ import android.widget.Toast;
 import com.squareup.picasso.Picasso;
 
 import java.util.ArrayList;
-import java.util.List;
 
 
 public class MainActivity extends ActionBarActivity {
 
-	private final List<Integer> mItems = new ArrayList<>();
+	private static final String STATE_ITEMS = "items";
+
+	private ArrayList<Integer> mItems;
 	private RecyclerView mRecyclerView;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
+
+		if (savedInstanceState == null) {
+			mItems = new ArrayList<>();
+		} else {
+			mItems = savedInstanceState.getIntegerArrayList(STATE_ITEMS);
+		}
 
 		mRecyclerView = (RecyclerView) findViewById(R.id.list);
 		mRecyclerView.setLayoutManager(new ScrollStretchLayout());
@@ -59,6 +65,12 @@ public class MainActivity extends ActionBarActivity {
 	}
 
 	@Override
+	protected void onSaveInstanceState(Bundle outState) {
+		super.onSaveInstanceState(outState);
+		outState.putIntegerArrayList(STATE_ITEMS, mItems);
+	}
+
+	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
 		getMenuInflater().inflate(R.menu.menu_main, menu);
 		return super.onCreateOptionsMenu(menu);
@@ -84,7 +96,7 @@ public class MainActivity extends ActionBarActivity {
 
 		@Override
 		public int getItemViewType(int position) {
-			return position % 3 == 0? 2 : 1;
+			return position % 3 == 0 ? 2 : 1;
 		}
 
 		@Override
