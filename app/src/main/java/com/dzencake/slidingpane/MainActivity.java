@@ -86,7 +86,9 @@ public class MainActivity extends ActionBarActivity {
 				break;
 			}
 			case R.id.action_remove: {
-				mItems.remove(mItems.size() - 1);
+				if (mItems.size() > 0) {
+					mItems.remove(mItems.size() - 1);
+				}
 				break;
 			}
 		}
