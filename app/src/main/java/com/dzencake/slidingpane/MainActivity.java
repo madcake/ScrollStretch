@@ -3,9 +3,7 @@ package com.dzencake.slidingpane;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.v7.app.ActionBarActivity;
-import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -26,6 +24,7 @@ public class MainActivity extends ActionBarActivity {
 
 	private ArrayList<Integer> mItems;
 	private RecyclerView mRecyclerView;
+	private SimpleAdapter mAdapter;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -40,6 +39,7 @@ public class MainActivity extends ActionBarActivity {
 			mItems = savedInstanceState.getIntegerArrayList(STATE_ITEMS);
 		}
 
+		mAdapter = new SimpleAdapter();
 		mRecyclerView = (RecyclerView) findViewById(R.id.list);
 		mRecyclerView.setLayoutManager(new VerticalLayout());
 //		mRecyclerView.setLayoutManager(new ScrollStretchLayout());
@@ -50,7 +50,7 @@ public class MainActivity extends ActionBarActivity {
 //				Log.e("TAG", "Fuckckckckckc");
 //			}
 //		});
-		mRecyclerView.setAdapter(new SimpleAdapter());
+		mRecyclerView.setAdapter(mAdapter);
 		mRecyclerView.setOnScrollListener(new RecyclerView.OnScrollListener() {
 			@Override
 			public void onScrollStateChanged(RecyclerView recyclerView, int newState) {
@@ -93,11 +93,25 @@ public class MainActivity extends ActionBarActivity {
 		switch (item.getItemId()) {
 			case R.id.action_add: {
 				mItems.add(mItems.size());
+
+				if (mItems.size() > 4 && mItems.size() < 7) {
+					mRecyclerView.smoothScrollBy(0, 400);
+				} else if (mItems.size() > 7) {
+					mRecyclerView.smoothScrollToPosition(mItems.size() - 1);
+				}
 				break;
 			}
 			case R.id.action_remove: {
 				if (mItems.size() > 0) {
 					mItems.remove(mItems.size() - 1);
+				}
+				break;
+			}
+			case R.id.action_toggle: {
+				if (mRecyclerView.getAdapter() instanceof SimpleAdapter) {
+					mRecyclerView.setAdapter(new VerySimpleAdapter());
+				} else {
+					mRecyclerView.setAdapter(mAdapter);
 				}
 				break;
 			}
@@ -132,6 +146,25 @@ public class MainActivity extends ActionBarActivity {
 		@Override
 		public int getItemCount() {
 			return mItems.size();
+		}
+	}
+
+	private static class VerySimpleAdapter extends RecyclerView.Adapter<SimpleHolder> {
+
+		@Override
+		public SimpleHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+			return new SimpleHolder(LayoutInflater.from(
+					parent.getContext()).inflate(R.layout.item_simple, parent, false));
+		}
+
+		@Override
+		public void onBindViewHolder(SimpleHolder holder, int position) {
+			holder.bind(position);
+		}
+
+		@Override
+		public int getItemCount() {
+			return 3;
 		}
 	}
 

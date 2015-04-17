@@ -14,4 +14,10 @@
 		android:orderInCategory="100"
 		app:showAsAction="always"
 		/>
+	<item
+		android:id="@+id/action_toggle"
+		android:title="@string/action_toggle"
+		android:orderInCategory="100"
+		app:showAsAction="always"
+		/>
 </menu>
