@@ -75,8 +75,6 @@ public class VerticalLayout extends RecyclerView.LayoutManager {
 		for (int i = 0; i < cache.size(); i++) {
 			detachView(cache.valueAt(i));
 		}
-		// запоминаем изначальный оффсет
-		int initialOffset = offset;
 		// Добавляем вьюшки
 		if (direction > 0) {
 			for (int i = oldPos; i < getItemCount(); i++) {
@@ -125,7 +123,7 @@ public class VerticalLayout extends RecyclerView.LayoutManager {
 				int viewHeight = mOrientationHelper.getDecoratedMeasurement(v);
 
 				offset -= viewHeight;
-				if (offset < getHeight() - dy) {
+				if (offset < getHeight()) {
 					// Если view уже была, то достаём из кэша иначе строим новую.
 					if (cache.get(i) == null) {
 						addView(v, 0);
@@ -138,15 +136,15 @@ public class VerticalLayout extends RecyclerView.LayoutManager {
 						cache.remove(i);
 					}
 				}
-				if (offset < 0) {
+				if (offset < dy) {
 					break;
 				}
 			}
 
-			int lastTopPos = mOrientationHelper.getDecoratedStart(getChildAt(0));
-			if (lastTopPos > 0) {
-				consumed = -lastTopPos;
-//				fixDy = fixDy > Math.abs(dy) ? dy : fixDy;
+			if (offset > dy) {
+				consumed = offset;
+			} else {
+				consumed = dy;
 			}
 		}
 
