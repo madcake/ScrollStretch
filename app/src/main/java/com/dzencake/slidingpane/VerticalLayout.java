@@ -27,24 +27,27 @@ public class VerticalLayout extends RecyclerView.LayoutManager {
 
 	@Override
 	public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
+		int oldFirstPos = getChildCount() == 0 ? 0 : getPosition(getChildAt(0));
+		// Считаем оффсет
+		int offset = getChildCount() == 0 ? 0 : mOrientationHelper.getDecoratedStart(getChildAt(0));
 		detachAndScrapAttachedViews(recycler);
+		// Заполняем
+		fill(recycler, 1, offset, oldFirstPos, 0);
 
-		int offset = 0;
-		for (int i = 0; i < getItemCount(); i++) {
-			View v = recycler.getViewForPosition(i);
-			measureChildWithMargins(v, 0, 0);
-			int viewHeight = mOrientationHelper.getDecoratedMeasurement(v);
-			addView(v);
-			RecyclerView.LayoutParams lp = (RecyclerView.LayoutParams) v.getLayoutParams();
-			layoutDecorated(v, lp.leftMargin, offset + lp.topMargin,
-					getWidth() - lp.rightMargin, offset + viewHeight - lp.bottomMargin);
-			offset += viewHeight;
-			if (offset > getHeight()) {
-				break;
-			}
-		}
-
-		Log.e(TAG, "onLayoutChanged");
+//		int offset = 0;
+//		for (int i = 0; i < getItemCount(); i++) {
+//			View v = recycler.getViewForPosition(i);
+//			measureChildWithMargins(v, 0, 0);
+//			int viewHeight = mOrientationHelper.getDecoratedMeasurement(v);
+//			addView(v);
+//			RecyclerView.LayoutParams lp = (RecyclerView.LayoutParams) v.getLayoutParams();
+//			layoutDecorated(v, lp.leftMargin, offset + lp.topMargin,
+//					getWidth() - lp.rightMargin, offset + viewHeight - lp.bottomMargin);
+//			offset += viewHeight;
+//			if (offset > getHeight()) {
+//				break;
+//			}
+//		}
 	}
 
 	@Override
@@ -59,8 +62,9 @@ public class VerticalLayout extends RecyclerView.LayoutManager {
 		}
 		// Вычисляем направление
 		int direction = Math.abs(dy) / dy;
-		// Берём старые позиции
-		int oldFirstPos = getPosition(getChildAt(0));
+		// Берём старую первую позицию
+		int oldFirstPos = getChildCount() == 0 ? 0 : getPosition(getChildAt(0));
+		// Берём старую последнюю позицию
 		int oldLastPos = getPosition(getChildAt(getChildCount() - 1));
 		// Сдвигаем views
 		offsetChildrenVertical(-dy);
@@ -68,6 +72,12 @@ public class VerticalLayout extends RecyclerView.LayoutManager {
 		int offset = direction == 1
 				? mOrientationHelper.getDecoratedStart(getChildAt(0))
 				: mOrientationHelper.getDecoratedEnd(getChildAt(getChildCount() - 1));
+		// Заполняем
+		fill(recycler, direction, offset, oldFirstPos, oldLastPos);
+		return dy;
+	}
+
+	private void fill(RecyclerView.Recycler recycler, int direction, int offset, int oldFirstPos, int oldLastPos) {
 		// Заводим кэш
 		SparseArray<View> cache = new SparseArray<>();
 		int childCount = getChildCount();
@@ -139,8 +149,6 @@ public class VerticalLayout extends RecyclerView.LayoutManager {
 		for (int i = 0; i < cache.size(); i++) {
 			recycler.recycleView(cache.valueAt(i));
 		}
-		cache.clear();
-		return dy;
 	}
 
 	/**

@@ -238,6 +238,7 @@ public class ScrollStretchLayout extends RecyclerView.LayoutManager {
 	 */
 	@Override
 	public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
+		Log.e(TAG, "onlayoutChildren");
 		// layout algorithm:
 		// 1) by checking children and other variables, find an anchor coordinate and an anchor
 		//  item position.

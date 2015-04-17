@@ -3,7 +3,9 @@ package com.dzencake.slidingpane;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.v7.app.ActionBarActivity;
+import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -40,6 +42,14 @@ public class MainActivity extends ActionBarActivity {
 
 		mRecyclerView = (RecyclerView) findViewById(R.id.list);
 		mRecyclerView.setLayoutManager(new VerticalLayout());
+//		mRecyclerView.setLayoutManager(new ScrollStretchLayout());
+//		mRecyclerView.setLayoutManager(new LinearLayoutManager(this) {
+//			@Override
+//			public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
+//				super.onLayoutChildren(recycler, state);
+//				Log.e("TAG", "Fuckckckckckc");
+//			}
+//		});
 		mRecyclerView.setAdapter(new SimpleAdapter());
 		mRecyclerView.setOnScrollListener(new RecyclerView.OnScrollListener() {
 			@Override
