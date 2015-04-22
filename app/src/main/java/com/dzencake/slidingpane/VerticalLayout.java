@@ -6,7 +6,6 @@ import android.os.Parcelable;
 import android.support.v7.widget.LinearSmoothScroller;
 import android.support.v7.widget.OrientationHelper;
 import android.support.v7.widget.RecyclerView;
-import android.util.Log;
 import android.util.SparseArray;
 import android.view.View;
 import android.view.ViewGroup;
@@ -15,14 +14,30 @@ import static android.support.v7.widget.RecyclerView.NO_POSITION;
 
 public class VerticalLayout extends RecyclerView.LayoutManager {
 
-	private static final String TAG = VerticalLayout.class.getSimpleName();
+//	private static final String TAG = VerticalLayout.class.getSimpleName();
 
 	private OrientationHelper mOrientationHelper;
 	private SavedState mPendingSavedState;
+	boolean isClosed;
 
 	public VerticalLayout() {
 		// Враппер над LayoutParams с хелпер методами работы с конкретным View
 		mOrientationHelper = OrientationHelper.createVerticalHelper(this);
+	}
+
+	@Override
+	public void onAttachedToWindow(RecyclerView recyclerView) {
+//		ImageView view = new ImageView(recyclerView.getContext());
+//		view.setTag(true);
+//		addView(view, 0);
+//		RecyclerView.LayoutParams lp = (RecyclerView.LayoutParams) view.getLayoutParams();
+//		layoutDecorated(view, lp.leftMargin, -100 + lp.topMargin,
+//				getWidth() - lp.rightMargin, 200 - lp.bottomMargin);
+//		Picasso.with(recyclerView.getContext())
+//				.load(Uri.parse("http://www.studymission.com/images/nz.jpg"))
+//				.fit()
+//				.centerCrop()
+//				.into(view);
 	}
 
 	@Override
@@ -44,12 +59,17 @@ public class VerticalLayout extends RecyclerView.LayoutManager {
 
 	@Override
 	public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
-		int oldFirstPos;
-		int offset;
+		int oldFirstPos = 0;
+		int offset = 0;
 		if (mPendingSavedState == null || !mPendingSavedState.hasValidPosition()) {
-			oldFirstPos = getChildCount() == 0 ? 0 : getPosition(getChildAt(0));
-			// Считаем оффсет
-			offset = getChildCount() == 0 ? 0 : mOrientationHelper.getDecoratedStart(getChildAt(0));
+			if (getChildCount() != 0) {
+				oldFirstPos = getPosition(getChildAt(0));
+				// Считаем оффсет
+				offset = mOrientationHelper.getDecoratedStart(getChildAt(0));
+			} else if (isClosed) {
+				oldFirstPos = 0;
+				offset = mOrientationHelper.getEnd();
+			}
 		} else {
 			oldFirstPos = mPendingSavedState.position;
 			offset = mPendingSavedState.offset;
@@ -96,6 +116,8 @@ public class VerticalLayout extends RecyclerView.LayoutManager {
 		// Заполняем
 		int consumed = fill(recycler, direction, offset, oldPosition, dy);
 		offsetChildrenVertical(-consumed);
+		isClosed = getItemCount() > 0 && getChildCount() > 0 && mOrientationHelper.getDecoratedStart(getChildAt(0))
+				>= mOrientationHelper.getEnd();
 		return consumed;
 	}
 
@@ -161,9 +183,7 @@ public class VerticalLayout extends RecyclerView.LayoutManager {
 					v = recycler.getViewForPosition(i);
 					measureChildWithMargins(v, 0, 0);
 				}
-
 				int viewHeight = mOrientationHelper.getDecoratedMeasurement(v);
-
 				offset -= viewHeight;
 				if (offset < height) {
 					// Если view уже была, то достаём из кэша иначе строим новую.
@@ -182,11 +202,10 @@ public class VerticalLayout extends RecyclerView.LayoutManager {
 					break;
 				}
 			}
-
 			offset -= mOrientationHelper.getEnd();
 
 			if (offset > dy) {
-				consumed = offset ;
+				consumed = offset;
 			} else {
 				consumed = dy;
 			}
