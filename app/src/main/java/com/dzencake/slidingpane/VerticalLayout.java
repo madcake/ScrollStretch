@@ -6,6 +6,7 @@ import android.os.Parcelable;
 import android.support.v7.widget.LinearSmoothScroller;
 import android.support.v7.widget.OrientationHelper;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.util.SparseArray;
 import android.view.View;
 import android.view.ViewGroup;
@@ -68,21 +69,30 @@ public class VerticalLayout extends RecyclerView.LayoutManager {
 
 	@Override
 	public int scrollVerticallyBy(int dy, RecyclerView.Recycler recycler, RecyclerView.State state) {
-		if (getChildCount() == 0 || dy == 0) {
+		if (dy == 0) {
 			return 0;
 		}
 		// Вычисляем направление
 		int direction = Math.abs(dy) / dy;
-		// Берём старую первую позицию
-		int oldPosition = direction == 1
-				? getPosition(getChildAt(0))
-				: getPosition(getChildAt(getChildCount() - 1));
-		// Сдвигаем views
-//		offsetChildrenVertical(-dy);
-		// Считаем оффсет
-		int offset = direction == 1
-				? mOrientationHelper.getDecoratedStart(getChildAt(0))
-				: mOrientationHelper.getDecoratedEnd(getChildAt(getChildCount() - 1));
+		int oldPosition;
+		int offset;
+		if (getChildCount() == 0 && direction == 1) {
+			oldPosition = 0;
+			offset = mOrientationHelper.getEnd();
+		} else if (getChildCount() == 0 && direction == -1) {
+			return 0;
+		} else {
+			// Берём старую первую позицию
+			oldPosition = direction == 1
+					? getPosition(getChildAt(0))
+					: getPosition(getChildAt(getChildCount() - 1));
+			// Сдвигаем views
+			//		offsetChildrenVertical(-dy);
+			// Считаем оффсет
+			offset = direction == 1
+					? mOrientationHelper.getDecoratedStart(getChildAt(0))
+					: mOrientationHelper.getDecoratedEnd(getChildAt(getChildCount() - 1));
+		}
 		// Заполняем
 		int consumed = fill(recycler, direction, offset, oldPosition, dy);
 		offsetChildrenVertical(-consumed);
@@ -91,6 +101,7 @@ public class VerticalLayout extends RecyclerView.LayoutManager {
 
 	private int fill(RecyclerView.Recycler recycler, int direction, int offset, int oldPos, int dy) {
 		int consumed;
+		int height = getHeight();
 		// Заводим кэш
 		SparseArray<View> cache = new SparseArray<>();
 		int childCount = getChildCount();
@@ -126,15 +137,19 @@ public class VerticalLayout extends RecyclerView.LayoutManager {
 						cache.remove(i);
 					}
 				}
-				if (offset > getHeight() + dy) {
+				if (offset > height + dy) {
 					break;
 				}
 			}
-			if (offset < getHeight()) {
+			int top = mOrientationHelper.getDecoratedStart(getChildAt(0));
+
+			if (offset < height && top <= 0) {
 				return 0;
+			} else if (offset < height && top - dy < 0) {
+				return dy - (dy - top);
 			} else {
-				if (offset < getHeight() + dy) {
-					consumed = offset - getHeight();
+				if (offset < height + dy && top <= 0) {
+					consumed = offset - height;
 				} else {
 					consumed = dy;
 				}
@@ -150,7 +165,7 @@ public class VerticalLayout extends RecyclerView.LayoutManager {
 				int viewHeight = mOrientationHelper.getDecoratedMeasurement(v);
 
 				offset -= viewHeight;
-				if (offset < getHeight()) {
+				if (offset < height) {
 					// Если view уже была, то достаём из кэша иначе строим новую.
 					if (cache.get(i) == null) {
 						addView(v, 0);
@@ -168,8 +183,10 @@ public class VerticalLayout extends RecyclerView.LayoutManager {
 				}
 			}
 
+			offset -= mOrientationHelper.getEnd();
+
 			if (offset > dy) {
-				consumed = offset;
+				consumed = offset ;
 			} else {
 				consumed = dy;
 			}
