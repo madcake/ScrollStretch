@@ -1,7 +1,9 @@
 package com.dzencake.slidingpane;
 
+import android.graphics.PointF;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.support.v7.widget.LinearSmoothScroller;
 import android.support.v7.widget.OrientationHelper;
 import android.support.v7.widget.RecyclerView;
 import android.util.SparseArray;
@@ -177,6 +179,29 @@ public class VerticalLayout extends RecyclerView.LayoutManager {
 			recycler.recycleView(cache.valueAt(i));
 		}
 		return consumed;
+	}
+
+	@Override
+	public void smoothScrollToPosition(RecyclerView recyclerView, RecyclerView.State state,
+									   int position) {
+		LinearSmoothScroller linearSmoothScroller =
+				new LinearSmoothScroller(recyclerView.getContext()) {
+					@Override
+					public PointF computeScrollVectorForPosition(int targetPosition) {
+						return VerticalLayout.this.computeScrollVectorForPosition(targetPosition);
+					}
+				};
+		linearSmoothScroller.setTargetPosition(position);
+		startSmoothScroll(linearSmoothScroller);
+	}
+
+	public PointF computeScrollVectorForPosition(int targetPosition) {
+		if (getChildCount() == 0) {
+			return null;
+		}
+		final int firstChildPos = getPosition(getChildAt(0));
+		final int direction = targetPosition < firstChildPos ? -1 : 1;
+		return new PointF(0, direction);
 	}
 
 	@Override
