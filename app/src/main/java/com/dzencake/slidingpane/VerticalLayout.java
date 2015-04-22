@@ -163,7 +163,7 @@ public class VerticalLayout extends RecyclerView.LayoutManager {
 					break;
 				}
 			}
-			int top = mOrientationHelper.getDecoratedStart(getChildAt(0));
+			int top = getChildCount() == 0 ? 0 : mOrientationHelper.getDecoratedStart(getChildAt(0));
 
 			if (offset < height && top <= 0) {
 				return 0;
