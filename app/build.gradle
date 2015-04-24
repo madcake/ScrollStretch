@@ -7,7 +7,7 @@ android {
     defaultConfig {
         applicationId "com.dzencake.slidingpane"
         minSdkVersion 16
-        targetSdkVersion 2
+        targetSdkVersion 22
         versionCode 1
         versionName "1.0"
     }

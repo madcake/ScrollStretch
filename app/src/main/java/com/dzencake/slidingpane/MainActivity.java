@@ -54,7 +54,7 @@ public class MainActivity extends AppCompatActivity {
 //			}
 //		});
 		mRecyclerView.setAdapter(mAdapter);
-		mRecyclerView.setOnScrollListener(new RecyclerView.OnScrollListener() {
+		mRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
 			@Override
 			public void onScrollStateChanged(RecyclerView recyclerView, int newState) {
 //				if (newState != RecyclerView.SCROLL_STATE_IDLE || recyclerView.getChildPosition(recyclerView.getChildAt(0)) != 0) {
