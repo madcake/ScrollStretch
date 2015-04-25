@@ -26,21 +26,6 @@ public class VerticalLayout extends RecyclerView.LayoutManager {
 	}
 
 	@Override
-	public void onAttachedToWindow(RecyclerView recyclerView) {
-//		ImageView view = new ImageView(recyclerView.getContext());
-//		view.setTag(true);
-//		addView(view, 0);
-//		RecyclerView.LayoutParams lp = (RecyclerView.LayoutParams) view.getLayoutParams();
-//		layoutDecorated(view, lp.leftMargin, -100 + lp.topMargin,
-//				getWidth() - lp.rightMargin, 200 - lp.bottomMargin);
-//		Picasso.with(recyclerView.getContext())
-//				.load(Uri.parse("http://www.studymission.com/images/nz.jpg"))
-//				.fit()
-//				.centerCrop()
-//				.into(view);
-	}
-
-	@Override
 	public void onRestoreInstanceState(Parcelable state) {
 		if (state instanceof SavedState) {
 			mPendingSavedState = (SavedState) state;

@@ -44,7 +44,7 @@ public class MainActivity extends AppCompatActivity {
 
 		mAdapter = new SimpleAdapter();
 		mRecyclerView = (RecyclerView) findViewById(R.id.list);
-		mRecyclerView.setLayoutManager(new VerticalLayout());
+		mRecyclerView.setLayoutManager(new SimpleVerticalLayout());
 //		mRecyclerView.setLayoutManager(new ScrollStretchLayout());
 //		mRecyclerView.setLayoutManager(new LinearLayoutManager(this) {
 //			@Override
@@ -97,11 +97,11 @@ public class MainActivity extends AppCompatActivity {
 			case R.id.action_add: {
 				mItems.add(mItems.size());
 
-				if (mItems.size() > 4 && mItems.size() < 7) {
-					mRecyclerView.smoothScrollBy(0, 400);
-				} else if (mItems.size() > 7) {
-					mRecyclerView.smoothScrollToPosition(mItems.size() - 1);
-				}
+//				if (mItems.size() > 4 && mItems.size() < 7) {
+//					mRecyclerView.smoothScrollBy(0, 400);
+//				} else if (mItems.size() > 7) {
+//					mRecyclerView.smoothScrollToPosition(mItems.size() - 1);
+//				}
 				break;
 			}
 			case R.id.action_remove: {
