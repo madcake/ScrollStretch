@@ -3,11 +3,14 @@ package com.dzencake.slidingpane;
 import android.support.v7.widget.OrientationHelper;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.RecyclerView.Recycler;
+import android.util.Log;
 import android.util.SparseArray;
 import android.view.View;
 import android.view.ViewGroup;
 
 public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
+	private static final int TO_END = 1; // Движение пальца вверх, скролл к концу списка
+	private static final int TO_START = -1; // Движение пальца вниз, скролл к началу списка
 
 	private final OrientationHelper mOrientationHelper;
 
@@ -59,126 +62,133 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 			return 0;
 		}
 		// Вычисляем направление скролла. direction == 1 || -1
-		int direction = Math.abs(dy) / dy;
+		int direction = dy > 0 ? TO_END : TO_START;
 		LayoutState layoutState = getLayoutState();
-		int freeSpace;
-		int scrollSpace;
-		// Заполняем слой из кэша с учётом скролл смещения, так же убираем не видимые view
-		if (direction == 1) {
-			// смещаем координаты
-			layoutState.offset -= dy;
-			// Убираем лишнии view и добавляем новые
-			freeSpace = fillStart(layoutState, recycler);
-			// Мы могли не дотянуть, то есть views кончились, а в низу осталось пустое пространство,
-			// но при этом сверху есть views
-			// TODO: тут всё не так просто
-//			if (freeSpace > 0 && layoutState.position > 0) {
-//				layoutState.availableSpace = -freeSpace;
-//				freeSpace = fillGapEnd(layoutState, recycler);
-//			}
+		// Запоминаем размер пространства доступный для скролинга
+		int scrollSpace = 0;
+		int consumed = 0;
+
+		if (direction == TO_END) {
+			final View endChild = getChildAt(getChildCount() - 1); // TODO: Это гарантрованно узкое место, в конечной редакции надо будет накрутить проверок.
+			// Двикаемся к концу списка. Добавляем только новые, и удаляем те которые вышли за границы
+			layoutState.currentPosition = getPosition(endChild) + direction;
+			// Берём позицию от которой будем класть новые view
+			layoutState.offset = mOrientationHelper.getDecoratedEnd(endChild);
+			// Место которое доступно для новых view. Примеры (где end = mOrientationHelper.getEndAfterPadding()):
+			// offset = 400, end = 1000; offset - end = -600;
+			// offset = 1100, end = 1000; offset - end = 100;
+			layoutState.scrollSpace = layoutState.offset - mOrientationHelper.getEndAfterPadding();
+			// Нам доступно смещение которое задал пользователь минус scrollSpace
+			// offset = 400, end = 1000, dy = 15; dy - (offset - end) = 585;
+			// offset = 110, end = 1000, dy = 15; dy - (offset - end) = -85;
+			layoutState.availableSpace = dy - layoutState.scrollSpace;
+			scrollSpace = layoutState.scrollSpace;
+			// Меняем view и возвращаем оставшееся от изменений пространство.
+			// На основании этого значения получаем потреблённое пространство
+			// scrollSpace = 585, больше view нет; fillStart = -585;
+			// scrollSpace = -100, view ещё есть и следющая добавленная требует 200;
+			consumed = scrollSpace + fillStart(layoutState, recycler);
 		} else {
-			scrollSpace = -mOrientationHelper.getDecoratedStart(getChildAt(0))
-					+ mOrientationHelper.getStartAfterPadding();
-			layoutState.position = getPosition(getChildAt(getChildCount() - 1));
-			layoutState.offset = mOrientationHelper.getDecoratedEnd(getChildAt(getChildCount() - 1));
-			layoutState.availableSpace = dy;
-			freeSpace = fillEnd(layoutState, recycler);
+			// Для направления к началу списка
+			final View startChild = getChildAt(0); // TODO: Это гарантрованно узкое место, в конечной редакции надо будет накрутить проверок.
+			// Двикаемся к концу списка. Добавляем только новые, и удаляем те которые вышли за границы
+			layoutState.currentPosition = getPosition(startChild) + direction;
+			// Берём позицию от которой будем класть новые view
+			layoutState.offset = mOrientationHelper.getDecoratedStart(startChild);
+			// Место которое доступно для новых view. Примеры (где end = mOrientationHelper.getStartAfterPadding()):
+			// offset = -10, start = 0; -offset + end = 10;
+			// offset = 0, start = 0; -offset - end = 0;
+			layoutState.scrollSpace = -layoutState.offset + mOrientationHelper.getStartAfterPadding();
+			// Нам доступно смещение которое задал пользователь минус scrollSpace
+			// offset = -10, start = 0, dy = -15; dy - (-offset - end) = 5;
+			// offset = 0, end = 0, dy = -15; dy - (-offset - end) = -15;
+			layoutState.availableSpace = dy - layoutState.scrollSpace;
+			scrollSpace = layoutState.scrollSpace;
+			// Меняем view и возвращаем оставшееся от изменений пространство.
+			// На основании этого значения получаем потреблённое пространство
+			// scrollSpace = 585, больше view нет; fillStart = -585;
+			// scrollSpace = -100, view ещё есть и следющая добавленная требует 200;
+			consumed = scrollSpace + fillEnd(layoutState, recycler);
 		}
-//		freeSpace -= dy;
-		offsetChildrenVertical(freeSpace > dy ? 0 : -dy);
-		return dy;
+		if (consumed < 0) {
+			// Нет элементов для скролинга
+			return 0;
+		}
+		int scrolled = Math.abs(dy) > consumed ? consumed * direction // вытягиваем, если надо;
+			: dy; // скролим
+		// Совершаем скрол или вытягивание
+		offsetChildrenVertical(-scrolled);
+		// отрисовать edges, рассказать слушателям на сколько отскролили
+		return scrolled;
 	}
 
 	// Задача метода взять существующие view и переложить их, убрав более не видимые
 	private int fillStart(LayoutState layoutState, Recycler recycler) {
-		int usedSpace = layoutState.offset;
-		// Заводим кэш (Scrap)
-		SparseArray<View> cache = new SparseArray<>();
-		int childCount = getChildCount();
-		for (int i = 0; i < childCount; i++) {
-			View v = getChildAt(i);
-			cache.put(getPosition(v), v);
+		int start = layoutState.availableSpace;
+		int remainingSpace = layoutState.availableSpace;
+		// getItemCount > 0 на тот случай если адаптер вдруг изменился, а нам ещё не рассказали
+		while (remainingSpace > 0 && getItemCount() > 0 && layoutState.currentPosition < getItemCount()) {
+			// Запрашиваем view для позиции которую заготовили ранее
+			View view = recycler.getViewForPosition(layoutState.currentPosition);
+			// Для следующей итерации
+			layoutState.currentPosition++;
+			// Добавлеям view в конец
+			addView(view);
+			// Вычисляем размеры view
+			measureChildWithMargins(view, 0, 0);
+			// Потреблённое view пространство
+			int viewConsumed = mOrientationHelper.getDecoratedMeasurement(view);
+			// Вычисляем и применяем границы view
+			RecyclerView.LayoutParams params = (RecyclerView.LayoutParams) view.getLayoutParams();
+			int left = getPaddingLeft() + params.leftMargin;
+			int top = layoutState.offset + params.topMargin;
+			int right = left + mOrientationHelper.getDecoratedMeasurementInOther(view) - params.rightMargin;
+			int bottom = layoutState.offset + viewConsumed - params.bottomMargin;
+			// We calculate everything with View's bounding box (which includes decor and margins)
+			// To calculate correct layout position, we subtract margins.
+			layoutDecorated(view, left, top, right, bottom);
+			layoutState.offset += viewConsumed;
+			// view положили теперь надо удалить и изменить флаги
+			layoutState.availableSpace -= viewConsumed;
+			// remaining заведенна для внутреннего использования, scrollSpace требуется в более расширенном виде
+			remainingSpace -= viewConsumed;
+			// TODO: Убрать не видимую
 		}
-		// Детачим все вьюшки
-		for (int i = 0; i < cache.size(); i++) {
-			detachView(cache.valueAt(i));
-		}
-
-		for (int i = layoutState.position; i < getItemCount() && usedSpace <= layoutState.availableSpace; i++) {
-			View v = cache.get(i);
-			if (v == null) {
-				v = recycler.getViewForPosition(i);
-				measureChildWithMargins(v, 0, 0);
-			}
-			int viewHeight = mOrientationHelper.getDecoratedMeasurement(v);
-			usedSpace += viewHeight;
-			// Что бы не потерять view
-			if (usedSpace >= 0) {
-				// Если view уже была, то достаём из кэша иначе строим новую.
-				if (cache.get(i) == null) {
-					addView(v);
-					RecyclerView.LayoutParams lp = (RecyclerView.LayoutParams) v.getLayoutParams();
-					int left = lp.leftMargin;
-					int top = lp.topMargin + usedSpace - viewHeight;
-					int right = getWidth() - lp.rightMargin;
-					int bottom = usedSpace - lp.bottomMargin;
-					layoutDecorated(v, left, top, right, bottom);
-				} else {
-					attachView(v);
-					cache.remove(i);
-				}
-			}
-		}
-		// Утилизируем не использованные views
-		for (int i = 0; i < cache.size(); i++) {
-			recycler.recycleView(cache.valueAt(i));
-		}
-		return layoutState.availableSpace - usedSpace;
+		return start - layoutState.availableSpace;
 	}
 
 	private int fillEnd(LayoutState layoutState, Recycler recycler) {
-		int usedSpace = layoutState.offset;
-		// Заводим кэш (Scrap)
-		SparseArray<View> cache = new SparseArray<>();
-		int childCount = getChildCount();
-		for (int i = 0; i < childCount; i++) {
-			View v = getChildAt(i);
-			cache.put(getPosition(v), v);
+		int start = layoutState.availableSpace;
+		int remainingSpace = layoutState.availableSpace;
+		// getItemCount > 0 на тот случай если адаптер вдруг изменился, а нам ещё не рассказали
+		while (remainingSpace > 0 && getItemCount() > 0 && layoutState.currentPosition >= 0) {
+			// Запрашиваем view для позиции которую заготовили ранее
+			View view = recycler.getViewForPosition(layoutState.currentPosition);
+			// Для следующей итерации
+			layoutState.currentPosition--;
+			// Добавлеям view в начало
+			addView(view, 0);
+			// Вычисляем размеры view
+			measureChildWithMargins(view, 0, 0);
+			// Потреблённое view пространство
+			int viewConsumed = mOrientationHelper.getDecoratedMeasurement(view);
+			// Вычисляем и применяем границы view
+			RecyclerView.LayoutParams params = (RecyclerView.LayoutParams) view.getLayoutParams();
+			int left = getPaddingLeft() + params.leftMargin;
+			int top = layoutState.offset - viewConsumed + params.topMargin;
+			int right = left + mOrientationHelper.getDecoratedMeasurementInOther(view) - params.rightMargin;
+			int bottom = layoutState.offset - params.bottomMargin;
+			// We calculate everything with View's bounding box (which includes decor and margins)
+			// To calculate correct layout position, we subtract margins.
+			layoutDecorated(view, left, top, right, bottom);
+			layoutState.offset -= viewConsumed;
+			// view положили теперь надо удалить и изменить флаги
+			layoutState.availableSpace -= viewConsumed;
+			// remaining заведенна для внутреннего использования, scrollSpace требуется в более расширенном виде
+			remainingSpace -= viewConsumed;
+			// TODO: Убрать не видимую
 		}
-		// Детачим все вьюшки
-		for (int i = 0; i < cache.size(); i++) {
-			detachView(cache.valueAt(i));
-		}
-
-		for (int i = layoutState.position; i > -1 && usedSpace > layoutState.availableSpace; i--) {
-			View v = cache.get(i);
-			if (v == null) {
-				v = recycler.getViewForPosition(i);
-				measureChildWithMargins(v, 0, 0);
-			}
-			int viewHeight = mOrientationHelper.getDecoratedMeasurement(v);
-			usedSpace -= viewHeight;
-			if (usedSpace < layoutState.availableSpace) {
-				// Если view уже была, то достаём из кэша иначе строим новую.
-				if (cache.get(i) == null) {
-					addView(v, 0);
-					RecyclerView.LayoutParams lp = (RecyclerView.LayoutParams) v.getLayoutParams();
-					int left = lp.leftMargin;
-					int top = lp.topMargin + usedSpace;
-					int right = getWidth() - lp.rightMargin;
-					int bottom = usedSpace + viewHeight - lp.bottomMargin;
-					layoutDecorated(v, left, top, right, bottom);
-				} else {
-					attachView(v, 0);
-					cache.remove(i);
-				}
-			}
-		}
-		// Утилизируем не использованные views
-		for (int i = 0; i < cache.size(); i++) {
-			recycler.recycleView(cache.valueAt(i));
-		}
-		return layoutState.availableSpace - usedSpace;
+		return start - layoutState.availableSpace;
 	}
 
 
@@ -258,5 +268,12 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 		public int offset;
 		/** Доступное для размещения view пространство */
 		public int availableSpace;
+		/** Текущая позиция для адаптера, от которой планируется заполнение */
+		// Добавленно для обратной совместимости с position
+		public int currentPosition;
+		/** Доступное для скроллинга пространство */
+		// Добавленно для обратной совместимости с available
+		public int scrollSpace;
+
 	}
 }
