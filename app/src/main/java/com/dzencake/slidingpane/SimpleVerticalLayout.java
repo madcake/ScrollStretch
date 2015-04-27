@@ -61,6 +61,7 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 		}
 		// Вычисляем направление скролла. direction == 1 || -1
 		int direction = dy > 0 ? TO_END : TO_START;
+		int absDy = Math.abs(dy);
 		LayoutState layoutState = getLayoutState();
 		// Запоминаем размер пространства доступный для скролинга
 		int scrollSpace = 0;
@@ -79,7 +80,7 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 			// Нам доступно смещение которое задал пользователь минус scrollSpace
 			// offset = 400, end = 1000, dy = 15; dy - (offset - end) = 585;
 			// offset = 110, end = 1000, dy = 15; dy - (offset - end) = -85;
-			layoutState.availableSpace = dy - layoutState.scrollSpace;
+			layoutState.availableSpace = absDy - layoutState.scrollSpace;
 			scrollSpace = layoutState.scrollSpace;
 			// Меняем view и возвращаем оставшееся от изменений пространство.
 			// На основании этого значения получаем потреблённое пространство
@@ -98,9 +99,9 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 			// offset = 0, start = 0; -offset - end = 0;
 			layoutState.scrollSpace = -layoutState.offset + mOrientationHelper.getStartAfterPadding();
 			// Нам доступно смещение которое задал пользователь минус scrollSpace
-			// offset = -10, start = 0, dy = -15; dy - (-offset - end) = 5;
-			// offset = 0, end = 0, dy = -15; dy - (-offset - end) = -15;
-			layoutState.availableSpace = dy - layoutState.scrollSpace;
+			// offset = -10, start = 0, dy = -15; dy - (-offset - end) = -25;
+			// offset = 0, end = 0, dy = -15; dy - (-offset - end) = 15;
+			layoutState.availableSpace = absDy - layoutState.scrollSpace;
 			scrollSpace = layoutState.scrollSpace;
 			// Меняем view и возвращаем оставшееся от изменений пространство.
 			// На основании этого значения получаем потреблённое пространство
@@ -112,7 +113,7 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 			// Нет элементов для скролинга
 			return 0;
 		}
-		int scrolled = Math.abs(dy) > consumed ? consumed * direction // вытягиваем, если надо;
+		int scrolled = absDy > consumed ? consumed * direction // вытягиваем, если надо;
 			: dy; // скролим
 		// Совершаем скрол или вытягивание
 		offsetChildrenVertical(-scrolled);
@@ -156,7 +157,6 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 				layoutState.scrollSpace += layoutState.availableSpace;
 			}
 			if (layoutState.scrollSpace >= 0) {
-				// ignore padding, ViewGroup may not clip children.
 				final int childCount = getChildCount();
 
 				for (int i = 0; i < childCount; i++) {
@@ -214,8 +214,10 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 				for (int i = childCount - 1; i > -1; i--) {
 					View child = getChildAt(i);
 					if (mOrientationHelper.getDecoratedStart(child) < limit) {
-						for (int j = childCount - 1; j > i; j--) {
-							removeAndRecycleViewAt(i, recycler);
+						if (childCount - 1 != i) {
+							for (int j = childCount - 1; j > i; j--) {
+								removeAndRecycleViewAt(i, recycler);
+							}
 						}
 						break;
 					}
