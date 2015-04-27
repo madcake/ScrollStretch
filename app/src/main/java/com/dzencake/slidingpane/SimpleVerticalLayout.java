@@ -216,7 +216,7 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 					if (mOrientationHelper.getDecoratedStart(child) < limit) {
 						if (childCount - 1 != i) {
 							for (int j = childCount - 1; j > i; j--) {
-								removeAndRecycleViewAt(i, recycler);
+								removeAndRecycleViewAt(j, recycler);
 							}
 						}
 						break;
