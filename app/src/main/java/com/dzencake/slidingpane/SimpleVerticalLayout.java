@@ -3,8 +3,6 @@ package com.dzencake.slidingpane;
 import android.support.v7.widget.OrientationHelper;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.RecyclerView.Recycler;
-import android.util.Log;
-import android.util.SparseArray;
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -151,8 +149,26 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 			// view положили теперь надо удалить и изменить флаги
 			layoutState.availableSpace -= viewConsumed;
 			// remaining заведенна для внутреннего использования, scrollSpace требуется в более расширенном виде
-			remainingSpace -= viewConsumed;
-			// TODO: Убрать не видимую
+			remainingSpace -= viewConsumed; // TODO: Думаю можно обойтись только availableSpace
+			// Убираем не видимые view
+			layoutState.scrollSpace += viewConsumed;
+			if (layoutState.availableSpace < 0) {
+				layoutState.scrollSpace += layoutState.availableSpace;
+			}
+			if (layoutState.scrollSpace >= 0) {
+				// ignore padding, ViewGroup may not clip children.
+				final int childCount = getChildCount();
+
+				for (int i = 0; i < childCount; i++) {
+					View child = getChildAt(i);
+					if (mOrientationHelper.getDecoratedEnd(child) > layoutState.scrollSpace) {// stop here
+						for (int j = i - 1; j > -1; j--) {
+							removeAndRecycleViewAt(j, recycler);
+						}
+						break;
+					}
+				}
+			}
 		}
 		return start - layoutState.availableSpace;
 	}
@@ -186,7 +202,25 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 			layoutState.availableSpace -= viewConsumed;
 			// remaining заведенна для внутреннего использования, scrollSpace требуется в более расширенном виде
 			remainingSpace -= viewConsumed;
-			// TODO: Убрать не видимую
+			// Убираем не видимые view
+			layoutState.scrollSpace += viewConsumed;
+			if (layoutState.availableSpace < 0) {
+				layoutState.scrollSpace += layoutState.availableSpace;
+			}
+			if (layoutState.scrollSpace >= 0) {
+				final int childCount = getChildCount();
+				final int limit = mOrientationHelper.getEnd() - layoutState.scrollSpace;
+
+				for (int i = childCount - 1; i > -1; i--) {
+					View child = getChildAt(i);
+					if (mOrientationHelper.getDecoratedStart(child) < limit) {
+						for (int j = childCount - 1; j > i; j--) {
+							removeAndRecycleViewAt(i, recycler);
+						}
+						break;
+					}
+				}
+			}
 		}
 		return start - layoutState.availableSpace;
 	}
