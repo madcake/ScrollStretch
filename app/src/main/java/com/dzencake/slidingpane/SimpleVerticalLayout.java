@@ -128,13 +128,27 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 			// scrollSpace = -100, view ещё есть и следющая добавленная требует 200;
 			consumed = scrollSpace + fillEnd(layoutState, recycler);
 		}
+		int firstChildTop = mOrientationHelper.getDecoratedStart(getChildAt(0));
+		boolean isUsedConsumed =
+				firstChildTop > 0 && firstChildTop < mOrientationHelper.getEndAfterPadding()
+				&& getPosition(getChildAt(0)) == 0;
 
-		if (consumed < 0) {
+		if (consumed < 0 && !isUsedConsumed) {
 			// Нет элементов для скролинга
 			return 0;
 		}
-		int scrolled = absDy > consumed ? consumed * direction // вытягиваем, если надо;
-			: dy; // скролим
+		int scrolled;
+		if (absDy > consumed) {
+			if (firstChildTop > 0) {
+				scrolled = firstChildTop - absDy <= 0 ? firstChildTop : dy;
+			} else {
+				scrolled = consumed * direction; // вытягиваем, если надо;
+			}
+		} else {
+			scrolled = dy;
+		}
+//		scrolled = absDy > consumed ? consumed * direction // вытягиваем, если надо;
+//				: dy; // скролим
 		// Совершаем скрол или вытягивание
 		offsetChildrenVertical(-scrolled);
 		// отрисовать edges, рассказать слушателям на сколько отскролили
@@ -144,7 +158,7 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 	// Задача метода взять существующие view и переложить их, убрав не видимые
 	private int fillStart(LayoutState layoutState, Recycler recycler) {
 		int start = layoutState.availableSpace;
-		int remainingSpace = layoutState.availableSpace + mOrientationHelper.getEnd();
+		int remainingSpace = layoutState.availableSpace;
 		// getItemCount > 0 на тот случай если адаптер вдруг изменился, а нам ещё не рассказали
 		while (remainingSpace > 0 && getItemCount() > 0 && layoutState.currentPosition < getItemCount()) {
 			// Запрашиваем view для позиции которую заготовили ранее
@@ -193,7 +207,7 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 
 	private int fillEnd(LayoutState layoutState, Recycler recycler) {
 		int start = layoutState.availableSpace;
-		int remainingSpace = layoutState.availableSpace;
+		int remainingSpace = layoutState.availableSpace - mOrientationHelper.getEndAfterPadding();
 		// getItemCount > 0 на тот случай если адаптер вдруг изменился, а нам ещё не рассказали
 		while (remainingSpace > 0 && getItemCount() > 0 && layoutState.currentPosition >= 0) {
 			// Запрашиваем view для позиции которую заготовили ранее
@@ -240,7 +254,7 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 				}
 			}
 		}
-		return start - layoutState.availableSpace;
+		return start - remainingSpace;//layoutState.availableSpace;
 	}
 
 	/**
