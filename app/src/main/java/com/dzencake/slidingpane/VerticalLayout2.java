@@ -2,7 +2,6 @@ package com.dzencake.slidingpane;
 
 import android.support.v7.widget.OrientationHelper;
 import android.support.v7.widget.RecyclerView;
-import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -86,6 +85,7 @@ public class VerticalLayout2 extends RecyclerView.LayoutManager {
 		if (direction == TO_END) {
 			View lastView = getChildAt(getChildCount() - 1);
 			fillEndGap(recycler, getPosition(lastView) + 1, getViewBottom(lastView), absDy);
+
 		} else {
 			View firstView = getChildAt(0);
 			fillStartGap(recycler, getPosition(firstView) - 1, getViewTop(firstView), absDy);
@@ -93,13 +93,26 @@ public class VerticalLayout2 extends RecyclerView.LayoutManager {
 
 		offsetChildrenVertical(-dy);
 
+		// Ограничение по скроллу снизу
+		View lastView = getChildAt(getChildCount() - 1);
+		if (getPosition(lastView) == getItemCount() - 1 && getViewBottom(lastView) < getHeight()) {
+			offsetChildrenVertical(getHeight() - getViewBottom(lastView));
+		}
+		// Ограничение по скроллу сверху
+		View firstView = getChildAt(0);
+		if (getPosition(firstView) == 0 && getViewTop(firstView) > 0) {
+			offsetChildrenVertical(-getViewTop(firstView));
+		}
+
 		// Удаляем View за границами списка
 		for (int i = getChildCount() - 1; i > -1; i--) {
 			View child = getChildAt(i);
 			if (getViewBottom(child) < 0 || getViewTop(child) > getHeight()) {
-				removeAndRecycleViewAt(i, recycler);
+				detachViewAt(i);
+				recycler.recycleView(child);
 			}
 		}
+
 		return dy;
 	}
 
