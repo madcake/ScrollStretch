@@ -96,11 +96,13 @@ public class VerticalLayout2 extends RecyclerView.LayoutManager {
 		// Ограничение по скроллу снизу
 		View lastView = getChildAt(getChildCount() - 1);
 		if (getPosition(lastView) == getItemCount() - 1 && getViewBottom(lastView) < getHeight()) {
+			dy -= getHeight() - getViewBottom(lastView);
 			offsetChildrenVertical(getHeight() - getViewBottom(lastView));
 		}
 		// Ограничение по скроллу сверху
 		View firstView = getChildAt(0);
 		if (getPosition(firstView) == 0 && getViewTop(firstView) > 0) {
+			dy += getViewTop(firstView);
 			offsetChildrenVertical(-getViewTop(firstView));
 		}
 
