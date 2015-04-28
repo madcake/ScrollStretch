@@ -1,9 +1,13 @@
 package com.dzencake.slidingpane;
 
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.support.v7.widget.OrientationHelper;
 import android.support.v7.widget.RecyclerView;
 import android.view.View;
 import android.view.ViewGroup;
+
+import static android.support.v7.widget.RecyclerView.NO_POSITION;
 
 public class VerticalLayout3 extends RecyclerView.LayoutManager {
 	/**
@@ -15,9 +19,9 @@ public class VerticalLayout3 extends RecyclerView.LayoutManager {
 	 */
 	private static final int TO_START = -1;
 
-
 	private OrientationHelper mOrientationHelper;
 	private int mDummyHeight;
+	private SavedState mPendingSavedState;
 
 	public VerticalLayout3(int dummyHeight) {
 		// Враппер над LayoutParams с хелпер методами работы с конкретным View
@@ -41,7 +45,11 @@ public class VerticalLayout3 extends RecyclerView.LayoutManager {
 	public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
 		int position = 0;
 		int offset = 0;
-		if (getChildCount() > 0) {
+		if (mPendingSavedState != null) {
+			position = mPendingSavedState.position;
+			offset = mPendingSavedState.offset;
+			mPendingSavedState = null;
+		} else if (getChildCount() > 0) {
 			position = getPosition(getChildAt(0));
 			offset = getViewTop(getChildAt(0));
 		}
@@ -61,7 +69,7 @@ public class VerticalLayout3 extends RecyclerView.LayoutManager {
 			}
 		}
 
-		if (position == 0){
+		if (position == 0) {
 			return;
 		}
 
@@ -194,5 +202,77 @@ public class VerticalLayout3 extends RecyclerView.LayoutManager {
 
 	private int getViewBottom(View view) {
 		return mOrientationHelper.getDecoratedEnd(view);
+	}
+
+	@Override
+	public void onRestoreInstanceState(Parcelable state) {
+		if (state instanceof SavedState) {
+			mPendingSavedState = (SavedState) state;
+			if (mPendingSavedState.offset > getHeight()) {
+				mPendingSavedState.offset = getHeight(); // TODO: У нас может быть и больше
+			}
+			requestLayout();
+		}
+	}
+
+	@Override
+	public Parcelable onSaveInstanceState() {
+		if (mPendingSavedState != null) {
+			return new SavedState(mPendingSavedState);
+		}
+		SavedState state = new SavedState();
+		if (getChildCount() > 0) {
+			state.position = getPosition(getChildAt(0));
+			state.offset = getViewTop(getChildAt(0));
+		} else {
+			state.position = 0;
+			state.offset = 0;
+		}
+		return state;
+	}
+
+	static class SavedState implements Parcelable {
+
+		int position;
+
+		int offset;
+
+		public SavedState() {
+
+		}
+
+		SavedState(Parcel in) {
+			position = in.readInt();
+			offset = in.readInt();
+		}
+
+		public SavedState(SavedState other) {
+			position = other.position;
+			offset = other.offset;
+		}
+
+		@Override
+		public int describeContents() {
+			return 0;
+		}
+
+		@Override
+		public void writeToParcel(Parcel dest, int flags) {
+			dest.writeInt(position);
+			dest.writeInt(offset);
+		}
+
+		public static final Parcelable.Creator<SavedState> CREATOR
+				= new Parcelable.Creator<SavedState>() {
+			@Override
+			public SavedState createFromParcel(Parcel in) {
+				return new SavedState(in);
+			}
+
+			@Override
+			public SavedState[] newArray(int size) {
+				return new SavedState[size];
+			}
+		};
 	}
 }
