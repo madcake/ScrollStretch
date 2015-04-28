@@ -42,7 +42,7 @@ public class MainActivity extends AppCompatActivity {
 		mAdapter = new SimpleAdapter();
 		mRecyclerView = (RecyclerView) findViewById(R.id.list);
 //		mRecyclerView.setLayoutManager(new SimpleVerticalLayout());
-		mRecyclerView.setLayoutManager(new VerticalLayout2());
+		mRecyclerView.setLayoutManager(new VerticalLayout3((int) (getResources().getDisplayMetrics().density * 175)));
 //		mRecyclerView.setLayoutManager(new ScrollStretchLayout());
 //		mRecyclerView.setLayoutManager(new LinearLayoutManager(this) {
 //			@Override
@@ -103,7 +103,7 @@ public class MainActivity extends AppCompatActivity {
 				break;
 			}
 			case R.id.action_remove: {
-				if (mItems.size() > 0) {
+				if (mItems.size() > 1) {
 					mItems.remove(mItems.size() - 1);
 				}
 				break;
