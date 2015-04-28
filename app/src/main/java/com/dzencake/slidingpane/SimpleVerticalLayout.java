@@ -29,22 +29,41 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 	 */
 	@Override
 	public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
-		// Собираем состояние слоя
-		LayoutState layoutState = getLayoutState();
-		// Уюираем все view
-		detachAndScrapAttachedViews(recycler);
-		// Заполняем пустоты от меньшей позиции адаптера к большей
-		int freeSpace = fillGapStart(layoutState, recycler);
-		// Если есть ещё место и элементы то заполняем от большей к меньшей
-		// TODO: тут всё не так просто
-		if (freeSpace > 0 && layoutState.position > 0) {
-			layoutState.availableSpace = -freeSpace;
-			freeSpace = fillGapEnd(layoutState, recycler);
-		} else {
-			freeSpace = 0;
+		int position = 0;
+		int offset = 0;
+		if (getChildCount() > 0){
+			position = getPosition(getChildAt(0));
+			offset = getChildAt(0).getTop();
 		}
-		// Надо сдвинуть все view на незаполненое пространство, что бы views не болтались где попало
-		offsetChildrenVertical(layoutState.offset - freeSpace);
+
+		detachAndScrapAttachedViews(recycler);
+
+		if (getItemCount() == 0){
+			return;
+		}
+
+		fillEndGap(recycler, position, offset);
+
+		if (getChildCount() > 0) {
+			int viewsEnd = getChildAt(getChildCount() - 1).getBottom();
+			if (viewsEnd < getHeight()) {
+				offsetChildrenVertical(getHeight() - viewsEnd);
+			}
+		}
+
+		position = 0;
+		offset = 0;
+		if (getChildCount() > 0){
+			position = getPosition(getChildAt(0));
+			offset = getChildAt(0).getTop();
+		}
+
+		fillStartGap(recycler, position, offset);
+
+		int viewsStart = getChildAt(0).getTop();
+		if (viewsStart > 0){
+			offsetChildrenVertical(-viewsStart);
+		}
 	}
 
 	@Override
@@ -64,8 +83,8 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 		int absDy = Math.abs(dy);
 		LayoutState layoutState = getLayoutState();
 		// Запоминаем размер пространства доступный для скролинга
-		int scrollSpace = 0;
-		int consumed = 0;
+		int scrollSpace;
+		int consumed;
 
 		if (direction == TO_END) {
 			final View endChild = getChildAt(getChildCount() - 1); // TODO: Это гарантрованно узкое место, в конечной редакции надо будет накрутить проверок.
@@ -109,6 +128,7 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 			// scrollSpace = -100, view ещё есть и следющая добавленная требует 200;
 			consumed = scrollSpace + fillEnd(layoutState, recycler);
 		}
+
 		if (consumed < 0) {
 			// Нет элементов для скролинга
 			return 0;
@@ -121,10 +141,10 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 		return scrolled;
 	}
 
-	// Задача метода взять существующие view и переложить их, убрав более не видимые
+	// Задача метода взять существующие view и переложить их, убрав не видимые
 	private int fillStart(LayoutState layoutState, Recycler recycler) {
 		int start = layoutState.availableSpace;
-		int remainingSpace = layoutState.availableSpace;
+		int remainingSpace = layoutState.availableSpace + mOrientationHelper.getEnd();
 		// getItemCount > 0 на тот случай если адаптер вдруг изменился, а нам ещё не рассказали
 		while (remainingSpace > 0 && getItemCount() > 0 && layoutState.currentPosition < getItemCount()) {
 			// Запрашиваем view для позиции которую заготовили ранее
@@ -143,8 +163,6 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 			int top = layoutState.offset + params.topMargin;
 			int right = left + mOrientationHelper.getDecoratedMeasurementInOther(view) - params.rightMargin;
 			int bottom = layoutState.offset + viewConsumed - params.bottomMargin;
-			// We calculate everything with View's bounding box (which includes decor and margins)
-			// To calculate correct layout position, we subtract margins.
 			layoutDecorated(view, left, top, right, bottom);
 			layoutState.offset += viewConsumed;
 			// view положили теперь надо удалить и изменить флаги
@@ -194,8 +212,6 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 			int top = layoutState.offset - viewConsumed + params.topMargin;
 			int right = left + mOrientationHelper.getDecoratedMeasurementInOther(view) - params.rightMargin;
 			int bottom = layoutState.offset - params.bottomMargin;
-			// We calculate everything with View's bounding box (which includes decor and margins)
-			// To calculate correct layout position, we subtract margins.
 			layoutDecorated(view, left, top, right, bottom);
 			layoutState.offset -= viewConsumed;
 			// view положили теперь надо удалить и изменить флаги
@@ -227,64 +243,53 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 		return start - layoutState.availableSpace;
 	}
 
-
-	// Заполняем пустоты сверху вниз. Начало заполнения может быть < 0.
-	private int fillGapStart(LayoutState layoutState, Recycler recycler) {
-		int usedSpace = layoutState.offset;
-		int itemsCount = getItemCount();
-
-		for (int i = layoutState.position; i < itemsCount && usedSpace <= layoutState.availableSpace; i++) {
-			// Получаем view. Внутри она либо создаётся адаптером, либо берётся из кэша
-			View v = recycler.getViewForPosition(i);
-			// Считаем размеры view
+	/**
+	 * Метод заполняет пустое место вьюхами, начиная с position со сдвигом topOffset. При добавлении View, offset и position
+	 * будут увеличиваться, пока offset не станет больше getHeight()
+	 * @param position позиция вьюшки в адаптере, с которой нужно начать заполнение
+	 * @param topOffset изначальный сдвиг (topOffset будет равен getTop() у первой View, которая добавится через этот метод)
+	 */
+	public void fillEndGap(RecyclerView.Recycler recycler, int position, int topOffset) {
+		while (position < getItemCount() && topOffset < getHeight()) {
+			View v = recycler.getViewForPosition(position);
 			measureChildWithMargins(v, 0, 0);
+
 			int viewHeight = mOrientationHelper.getDecoratedMeasurement(v);
-			// usedSpace будет хранить нижние границы view
-			usedSpace += viewHeight;
-			// Что бы не потерять view
-			// Добавляем view только если она видна и не ушла за границы экрана. Пример: -10 + 100
-			if (usedSpace >= 0) { // TODO: если не видна, то надо вернуть view в Recycler
-				// Строим view
-				addView(v);
-				RecyclerView.LayoutParams lp = (RecyclerView.LayoutParams) v.getLayoutParams();
-				// Формируем координаты view. usedSpace - хранит нижнюю позицию view.
-				int left = lp.leftMargin;
-				int top = lp.topMargin + usedSpace - viewHeight;
-				int right = getWidth() - lp.rightMargin;
-				int bottom = usedSpace - lp.bottomMargin;
-				layoutDecorated(v, left, top, right, bottom);
-			}
+
+			addView(v);
+			RecyclerView.LayoutParams lp = (RecyclerView.LayoutParams) v.getLayoutParams();
+			layoutDecorated(v, lp.leftMargin, topOffset + lp.topMargin,
+					getWidth() - lp.rightMargin, topOffset + viewHeight - lp.bottomMargin);
+
+			topOffset += viewHeight;
+			position++;
 		}
-		// Возвращаем размер не заполненного пространства
-		return layoutState.availableSpace - usedSpace;
 	}
 
-	private int fillGapEnd(LayoutState layoutState, Recycler recycler) {
-		int usedSpace = layoutState.offset;
-
-		for (int i = layoutState.position; i > -1 && usedSpace > layoutState.availableSpace; i--) {
-			// Получаем view. Внутри она либо создаётся адаптером, либо берётся из кэша
-			View v = recycler.getViewForPosition(i);
-			// Считаем размеры view
-			measureChildWithMargins(v, 0, 0);
-			int viewHeight = mOrientationHelper.getDecoratedMeasurement(v);
-			// usedSpace будет хранить верхнии границы view
-			usedSpace -= viewHeight;
-			// Что бы не потерять view
-			// Добавляем View только если она видна и не ушла за границы экрана. Пример: -10 + 100
-			if (usedSpace >= layoutState.availableSpace) { // TODO: если не видна, то надо вернуть view в Recycler
-				// Строим view и всегда кладём её на верх
-				addView(v, 0);
-				RecyclerView.LayoutParams lp = (RecyclerView.LayoutParams) v.getLayoutParams();
-				// Формируем координаты view. usedSpace - хранит нижнюю позицию view.
-				int left = lp.leftMargin;
-				int top = lp.topMargin + usedSpace;
-				int right = getWidth() - lp.rightMargin;
-				int bottom = usedSpace + viewHeight - lp.bottomMargin;
-				layoutDecorated(v, left, top, right, bottom);
-			}
+	/**
+	 * Метод заполняет пустое место вьюхами, начиная с position со сдвигом (bottomOffset - viewHeight). При добавлении View, offset и position
+	 * будут уменьшаться, пока offset не станет меньше 0.
+	 * @param position позиция вьюшки в адаптере, с которой нужно начать заполнение
+	 * @param bottomOffset изначальный сдвиг (bottomOffset будет равен getBottom() у первой View, которая добавится через этот метод)
+	 */
+	public void fillStartGap(RecyclerView.Recycler recycler, int position, int bottomOffset) {
+		if (position >= getItemCount()){
+			position = getItemCount() - 1;
 		}
-		return layoutState.availableSpace - usedSpace;
+		while (position > -1 && bottomOffset > 0) {
+			View v = recycler.getViewForPosition(position);
+			measureChildWithMargins(v, 0, 0);
+
+			int viewHeight = mOrientationHelper.getDecoratedMeasurement(v);
+
+			addView(v);
+			RecyclerView.LayoutParams lp = (RecyclerView.LayoutParams) v.getLayoutParams();
+			layoutDecorated(v, lp.leftMargin, bottomOffset - viewHeight + lp.topMargin,
+					getWidth() - lp.rightMargin, bottomOffset - lp.bottomMargin);
+
+			bottomOffset -= viewHeight;
+			position--;
+		}
 	}
 
 	private LayoutState getLayoutState() {

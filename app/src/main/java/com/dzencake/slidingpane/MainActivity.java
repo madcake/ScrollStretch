@@ -45,7 +45,8 @@ public class MainActivity extends AppCompatActivity {
 
 		mAdapter = new SimpleAdapter();
 		mRecyclerView = (RecyclerView) findViewById(R.id.list);
-		mRecyclerView.setLayoutManager(new VerticalLayout2());
+		mRecyclerView.setLayoutManager(new SimpleVerticalLayout());
+//		mRecyclerView.setLayoutManager(new VerticalLayout2());
 //		mRecyclerView.setLayoutManager(new ScrollStretchLayout());
 //		mRecyclerView.setLayoutManager(new LinearLayoutManager(this) {
 //			@Override
