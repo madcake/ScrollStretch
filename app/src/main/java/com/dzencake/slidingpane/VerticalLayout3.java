@@ -1,13 +1,13 @@
 package com.dzencake.slidingpane;
 
+import android.graphics.PointF;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.support.v7.widget.LinearSmoothScroller;
 import android.support.v7.widget.OrientationHelper;
 import android.support.v7.widget.RecyclerView;
 import android.view.View;
 import android.view.ViewGroup;
-
-import static android.support.v7.widget.RecyclerView.NO_POSITION;
 
 public class VerticalLayout3 extends RecyclerView.LayoutManager {
 	/**
@@ -28,6 +28,24 @@ public class VerticalLayout3 extends RecyclerView.LayoutManager {
 		// TODO выпилить его кхуям и написать обычные private методы
 		mOrientationHelper = OrientationHelper.createVerticalHelper(this);
 		mDummyHeight = dummyHeight;
+	}
+
+	public int getDummyTop() {
+		if (getPosition(getChildAt(0)) != 0) {
+			return -mDummyHeight;
+		}
+		return getViewTop(getChildAt(0));
+	}
+
+	public int getDummyBottom() {
+		if (getPosition(getChildAt(0)) != 0) {
+			return 0;
+		}
+		return getViewBottom(getChildAt(0));
+	}
+
+	public int getDummyHeight() {
+		return mDummyHeight;
 	}
 
 	@Override
@@ -125,6 +143,7 @@ public class VerticalLayout3 extends RecyclerView.LayoutManager {
 			offsetChildrenVertical(-getViewTop(firstView));
 		}
 
+		// йобаная магия, страшно даже трогать
 		if (getPosition(firstView) == 0 && getViewBottom(firstView) < 0 &&
 				getPosition(lastView) == getItemCount() - 1 && getViewBottom(lastView) - getViewBottom(firstView) < getHeight()) {
 			dy += getViewBottom(firstView);
@@ -141,6 +160,34 @@ public class VerticalLayout3 extends RecyclerView.LayoutManager {
 		}
 
 		return dy;
+	}
+
+	@Override
+	public void smoothScrollToPosition(RecyclerView recyclerView, RecyclerView.State state, int position) {
+		LinearSmoothScroller linearSmoothScroller = new LinearSmoothScroller(recyclerView.getContext()) {
+			@Override
+			public PointF computeScrollVectorForPosition(int targetPosition) {
+				return VerticalLayout3.this.computeScrollVectorForPosition(targetPosition);
+			}
+		};
+		linearSmoothScroller.setTargetPosition(position);
+		startSmoothScroll(linearSmoothScroller);
+	}
+
+	public void scrollToPositionWithOffset(int position, int offset) {
+		mPendingSavedState = new SavedState();
+		mPendingSavedState.position = position;
+		mPendingSavedState.offset = -offset;
+		requestLayout();
+	}
+
+	public PointF computeScrollVectorForPosition(int targetPosition) {
+		if (getChildCount() == 0) {
+			return null;
+		}
+		final int firstChildPos = getPosition(getChildAt(0));
+		final int direction = targetPosition < firstChildPos ? -1 : 1;
+		return new PointF(0, direction);
 	}
 
 	/**
@@ -262,8 +309,7 @@ public class VerticalLayout3 extends RecyclerView.LayoutManager {
 			dest.writeInt(offset);
 		}
 
-		public static final Parcelable.Creator<SavedState> CREATOR
-				= new Parcelable.Creator<SavedState>() {
+		public static final Parcelable.Creator<SavedState> CREATOR = new Parcelable.Creator<SavedState>() {
 			@Override
 			public SavedState createFromParcel(Parcel in) {
 				return new SavedState(in);
