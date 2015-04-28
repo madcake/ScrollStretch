@@ -31,9 +31,12 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 	public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
 		int position = 0;
 		int offset = 0;
+		int additionalGap = 0;
 		if (getChildCount() > 0) {
 			position = getPosition(getChildAt(0));
 			offset = getViewTop(getChildAt(0));
+			additionalGap = position == 0 && offset >= mOrientationHelper.getEndAfterPadding()
+					? mOrientationHelper.getEndAfterPadding() : 0;
 		}
 
 		detachAndScrapAttachedViews(recycler);
@@ -42,7 +45,7 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 			return;
 		}
 
-		fillEndGap(recycler, position, offset, 0);
+		fillEndGap(recycler, position, offset, additionalGap);
 
 		if (getChildCount() > 0) {
 			int viewsEnd = getViewBottom(getChildAt(getChildCount() - 1));
@@ -60,9 +63,11 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 
 		fillStartGap(recycler, position, offset, 0);
 
-		int viewsStart = getViewTop(getChildAt(0));
-		if (viewsStart > 0) {
-			offsetChildrenVertical(-viewsStart);
+		if (getChildCount() > 0) {
+			int viewsStart = getViewTop(getChildAt(0));
+			if (viewsStart > 0 && getPosition(getChildAt(0)) > 0 || viewsStart < getHeight()) {
+				offsetChildrenVertical(-viewsStart);
+			}
 		}
 	}
 
@@ -75,13 +80,13 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 	@Override
 	public int scrollVerticallyBy(int dy, Recycler recycler, RecyclerView.State state) {
 		// Не на что скролить выходим
-		if (dy == 0) {
+		if (dy == 0 || getChildCount() == 0) {
 			return 0;
 		}
 		// Вычисляем направление скролла. direction == 1 || -1
 		int direction = dy > 0 ? TO_END : TO_START;
 		int absDy = Math.abs(dy);
-		LayoutState layoutState = getLayoutState();
+		LayoutState layoutState = new LayoutState();
 		// Запоминаем размер пространства доступный для скролинга
 		int scrollSpace;
 		int consumed;
@@ -194,7 +199,7 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 				for (int i = 0; i < childCount; i++) {
 					View child = getChildAt(i);
 					if (mOrientationHelper.getDecoratedEnd(child) > layoutState.scrollSpace) {// stop here
-						for (int j = i - 1; j > -1; j--) {
+						for (int j = i - 1; j > 0; j--) {
 							removeAndRecycleViewAt(j, recycler);
 						}
 						break;
@@ -207,7 +212,8 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 
 	private int fillEnd(LayoutState layoutState, Recycler recycler) {
 		int start = layoutState.availableSpace;
-		int remainingSpace = layoutState.availableSpace - mOrientationHelper.getEndAfterPadding();
+		int remainingSpace = layoutState.availableSpace
+				- (getPosition(getChildAt(0)) == 0 ? mOrientationHelper.getEndAfterPadding() : 0);
 		// getItemCount > 0 на тот случай если адаптер вдруг изменился, а нам ещё не рассказали
 		while (remainingSpace > 0 && getItemCount() > 0 && layoutState.currentPosition >= 0) {
 			// Запрашиваем view для позиции которую заготовили ранее
@@ -244,8 +250,8 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 				for (int i = childCount - 1; i > -1; i--) {
 					View child = getChildAt(i);
 					if (mOrientationHelper.getDecoratedStart(child) < limit) {
-						if (childCount - 1 != i) {
-							for (int j = childCount - 1; j > i; j--) {
+						if (childCount - 1 != i - 1) {
+							for (int j = childCount - 1; j > i - 1; j--) {
 								removeAndRecycleViewAt(j, recycler);
 							}
 						}
@@ -310,15 +316,15 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 		}
 	}
 
-	private LayoutState getLayoutState() {
-		LayoutState state = new LayoutState();
-		state.availableSpace = mOrientationHelper.getEndAfterPadding();
-		if (getChildCount() > 0) { // TODO: буду ситации когда на слое не лежит не одной view
-			state.position = getPosition(getChildAt(0));
-			state.offset = mOrientationHelper.getDecoratedStart(getChildAt(0));
-		}
-		return state;
-	}
+//	private LayoutState getLayoutState() {
+//		LayoutState state = new LayoutState();
+//		state.availableSpace = mOrientationHelper.getEndAfterPadding();
+//		if (getChildCount() > 0) { // TODO: буду ситации когда на слое не лежит не одной view
+//			state.position = getPosition(getChildAt(0));
+//			state.offset = mOrientationHelper.getDecoratedStart(getChildAt(0));
+//		}
+//		return state;
+//	}
 
 	private int getViewTop(View view) {
 		return mOrientationHelper.getDecoratedStart(view);
@@ -329,8 +335,6 @@ public class SimpleVerticalLayout extends RecyclerView.LayoutManager {
 	}
 
 	private static class LayoutState {
-		/** Позиция адаптера */
-		public int position;
 		/** Смещение первого / последнего view */
 		public int offset;
 		/** Доступное для размещения view пространство */
