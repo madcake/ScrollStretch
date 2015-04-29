@@ -83,6 +83,8 @@ public class VerticalLayout3 extends RecyclerView.LayoutManager {
 		int viewsStart = getViewTop(getChildAt(0));
 		if (viewsStart > 0) {
 			offsetChildrenVertical(-viewsStart);
+		} else if (getPosition(getChildAt(0)) == 0) {
+			offsetChildrenVertical(-getViewBottom(getChildAt(0)));
 		}
 	}
 
