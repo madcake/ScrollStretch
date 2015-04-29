@@ -7,8 +7,6 @@ import android.support.v7.widget.RecyclerView;
 import android.view.View;
 import android.view.ViewGroup;
 
-import static android.support.v7.widget.RecyclerView.NO_POSITION;
-
 public class VerticalLayout3 extends RecyclerView.LayoutManager {
 	/**
 	 * Движение пальца вверх, скролл к концу списка
@@ -152,6 +150,9 @@ public class VerticalLayout3 extends RecyclerView.LayoutManager {
 	 * @param additionalGap дополнительное место для заполнения вьюшек
 	 */
 	private void fillEndGap(RecyclerView.Recycler recycler, int position, int topOffset, int additionalGap) {
+		if (position < 0) {
+			position = 0;
+		}
 		while (position < getItemCount() && topOffset < getHeight() + additionalGap) {
 			View v = recycler.getViewForPosition(position);
 			measureChildWithMargins(v, 0, 0);
