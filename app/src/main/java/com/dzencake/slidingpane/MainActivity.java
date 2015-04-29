@@ -3,7 +3,9 @@ package com.dzencake.slidingpane;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -22,9 +24,10 @@ public class MainActivity extends AppCompatActivity {
 
 	private static final String STATE_ITEMS = "items";
 
-	private ArrayList<Integer> mItems;
 	private RecyclerView mRecyclerView;
-	private SimpleAdapter mAdapter;
+	private StringsAdapter mAdapter;
+	private ArrayList<String> mItems;
+	private int mCounter = 0;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -33,54 +36,21 @@ public class MainActivity extends AppCompatActivity {
 
 		if (savedInstanceState == null) {
 			mItems = new ArrayList<>();
-			mItems.add(0);
-			mItems.add(1);
 		} else {
-			mItems = savedInstanceState.getIntegerArrayList(STATE_ITEMS);
+			mItems = savedInstanceState.getStringArrayList(STATE_ITEMS);
 		}
 
-		mAdapter = new SimpleAdapter();
+		mAdapter = new StringsAdapter(mItems);
+
 		mRecyclerView = (RecyclerView) findViewById(R.id.list);
-//		mRecyclerView.setLayoutManager(new SimpleVerticalLayout());
-		mRecyclerView.setLayoutManager(new VerticalLayout3((int) (getResources().getDisplayMetrics().density * 175)));
-//		mRecyclerView.setLayoutManager(new ScrollStretchLayout());
-//		mRecyclerView.setLayoutManager(new LinearLayoutManager(this) {
-//			@Override
-//			public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
-//				super.onLayoutChildren(recycler, state);
-//				Log.e("TAG", "Fuckckckckckc");
-//			}
-//		});
+		mRecyclerView.setLayoutManager(new PredictiveAnimationsLayout());
 		mRecyclerView.setAdapter(mAdapter);
-		mRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
-			@Override
-			public void onScrollStateChanged(RecyclerView recyclerView, int newState) {
-//				if (newState != RecyclerView.SCROLL_STATE_IDLE || recyclerView.getChildPosition(recyclerView.getChildAt(0)) != 0) {
-//					return;
-//				}
-//				if (recyclerView.getChildAt(0).getTop() > 150 && recyclerView.getChildAt(0).getTop() <= 600) {
-//					mRecyclerView.smoothScrollBy(0, recyclerView.getChildAt(0).getTop() - 600);
-//				} else if (recyclerView.getChildAt(0).getTop() > 900) {
-//					mRecyclerView.smoothScrollBy(0, recyclerView.getChildAt(0).getTop() - recyclerView.getHeight());
-//				} else if (recyclerView.getChildAt(0).getTop() > 600 && recyclerView.getChildAt(0).getTop() < 900) {
-//					mRecyclerView.smoothScrollBy(0, recyclerView.getChildAt(0).getTop() - 600);
-//				} else if (recyclerView.getChildAt(0).getTop() < 150) {
-//					mRecyclerView.smoothScrollBy(0, recyclerView.getChildAt(0).getTop() - 0);
-//				}
-			}
-
-			@Override
-			public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
-
-			}
-		});
-//		mRecyclerView.smoothScrollBy(0, -600);
 	}
 
 	@Override
 	protected void onSaveInstanceState(Bundle outState) {
 		super.onSaveInstanceState(outState);
-		outState.putIntegerArrayList(STATE_ITEMS, mItems);
+		outState.putStringArrayList(STATE_ITEMS, mItems);
 	}
 
 	@Override
@@ -93,19 +63,23 @@ public class MainActivity extends AppCompatActivity {
 	public boolean onOptionsItemSelected(MenuItem item) {
 		switch (item.getItemId()) {
 			case R.id.action_add: {
-				mItems.add(mItems.size());
-
-//				if (mItems.size() > 4 && mItems.size() < 7) {
-//					mRecyclerView.smoothScrollBy(0, 400);
-//				} else if (mItems.size() > 7) {
-//					mRecyclerView.smoothScrollToPosition(mItems.size() - 1);
-//				}
+				int oldSize = mItems.size();
+				Log.d("action_add", mItems.toString());
+				for (int i = 0; i < 6; i++) {
+					mItems.add("position " + mCounter++);
+				}
+				Log.d("action_add", mItems.toString());
+				mAdapter.notifyItemRangeInserted(oldSize, 6);
 				break;
 			}
 			case R.id.action_remove: {
-				if (mItems.size() > 1) {
-					mItems.remove(mItems.size() - 1);
+				int position = 5;
+				Log.d("action_remove", mItems.toString());
+				for (int i = 5; i > 0; i--) {
+					mItems.remove(position--);
 				}
+				Log.d("action_remove", mItems.toString());
+				mAdapter.notifyItemRangeRemoved(1, 5);
 				break;
 			}
 			case R.id.action_toggle: {
@@ -117,7 +91,6 @@ public class MainActivity extends AppCompatActivity {
 				break;
 			}
 		}
-		mRecyclerView.getAdapter().notifyDataSetChanged();
 		return super.onOptionsItemSelected(item);
 	}
 
